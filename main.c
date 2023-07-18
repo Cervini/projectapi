@@ -140,59 +140,42 @@ void printDistances(){
 int main(int argc, char *argv[]){
 	struct stop* stops = NULL; //create empty list of stations
 	char input[20];
-	fscanf("%s", input);
+	scanf("%s", input);
 	while(input){
-		switch(input){
-			case "aggiungi-stazione":{
-				int distanza, numero;
-				scanf("%d %d", &distanza, &numero);
-				addStop(distanza);
-				for(int i=0; i<numero; i++){
-					int autonomia;
-					scanf("%d", &autonomia);
-					addVehicle(distanza, autonomia);
-				}
-				break;
-			}
-			case " demolisci-stazione":{
-				int distanza;
-				scanf("%d", &distanza);
-				deleteStop(distanza);
-				break;
-			}
-			case "aggiungi-auto":{
-				int distanza, autonomia;
-				scanf("%d %d", &distanza, &autonomia);
+		if(strcmp(input,"aggiungi-stazione")){
+			int distanza, numero;
+			scanf("%d %d", &distanza, &numero);
+			addStop(distanza);
+			int i=0;
+			for(i=0; i<numero; i++){
+				int autonomia;
+				scanf("%d", &autonomia);
 				addVehicle(distanza, autonomia);
-				break;
 			}
-			case "rottama-auto":{
-				int distanza, autonomia;
-				scanf("%d %d", &distanza, &autonomia);
-				deleteVehicle(distanza, autonomia);
-				break;
-			}
-			case "pianifica-percorso":{
-				int partenza, arrivo;
-				scanf("%d %d", &partenza, &arrivo);
-				break;
-			}
-			default:{
-				printf("Should not end here");
-				break;
-			}
+			break;
+		} else if(strcmp(input,"demolisci-stazione")) {
+			int distanza;
+			scanf("%d", &distanza);
+			deleteStop(distanza);
+			break;
+		} else if(strcmp(input,"aggiungi-auto")){
+			int distanza, autonomia;
+			scanf("%d %d", &distanza, &autonomia);
+			addVehicle(distanza, autonomia);
+			break;
+		} else if(strcmp(input,"rottama-auto")){
+			int distanza, autonomia;
+			scanf("%d %d", &distanza, &autonomia);
+			deleteVehicle(distanza, autonomia);
+			break;
+		} else if(strcmp(input,"pianifica-percorso")){
+			int partenza, arrivo;
+			scanf("%d %d", &partenza, &arrivo);
+			break;
+		} else {
+			printf("Should not end here");
 		}
 	}
-	
-	
-	addStop(2);
-	addVehicle(2, 1);
-	addVehicle(2, 10);
-	addVehicle(2, 100);
-	addStop(27);
-	addStop(20);
-	deleteStop(20);
-	deleteVehicle(2,10);
 	printDistances();
 	return 0;
 }
