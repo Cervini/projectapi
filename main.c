@@ -12,7 +12,6 @@ typedef struct vehicle{
 
 typedef struct stop{
   int distance;
-  int visited;
   struct vehicle* vehicles;
   struct stop* next;
   struct stop* previous;
@@ -28,6 +27,7 @@ typedef struct path{
 //= GLOBAL VARIABLES ====================================================================
 
 struct stop* stops = NULL;
+struct path* tree = NULL;
 
 //= METHODS =============================================================================
 
@@ -84,6 +84,7 @@ void addVehicle(int distance, int value){
 	printf("aggiunta\n");
 }
 
+//removes stop from stops list
 void deleteStop(int distance){
 	struct stop* stop = getStop(distance);
 	if(stop == NULL){
@@ -98,6 +99,7 @@ void deleteStop(int distance){
 	}
 }
 
+//removes vehicle from vehicles list
 void deleteVehicle(int distance, int number){
 	struct stop* stop = getStop(distance);
 	if(stop != NULL){
@@ -120,15 +122,7 @@ void deleteVehicle(int distance, int number){
 	}
 }
 
-void resetVisited(){
-	struct stop* stop = stops;
-	do{
-		stop->visited = 0;
-		stop = stop->next;
-	}while(stop);
-}
-
-//returns the value of the autonomy of the vehicle with the greater one, or -1 if the station is empty
+//returns the gratest 'value' between the vehicles, or -1 if the station is empty
 int bestVehicle(int distance){
 	struct vehicle* vehicle = getStop(distance)->vehicles;
 	if(vehicle){
@@ -145,6 +139,22 @@ int bestVehicle(int distance){
 		return -1;
 	}
 }
+
+void addReachable(struct path* node, int finish){
+	//get the distance of the stop in the node
+	int from  = node->stop->distance;
+	//start to travel from node's stop
+	struct stop* traveller = node->stop;
+	do{
+		//add node if needed
+	}while(traveller&&(traveller->distance<=finish));
+}
+
+void route(int start, int finish){
+	
+}
+
+
 
 void fastestPath(int start, int finish){
 	//simple cases
@@ -190,9 +200,9 @@ void fastestPath(int start, int finish){
 						node->afters = way;
 					}
 				} else {
-					t = t->previous;
+					temp = temp->previous;
 				}
-			}while(t&&t->distance>=start);
+			}while(temp&&temp->distance>=start);
 			
 			//go to the next node
 			if(node->other_way){
@@ -202,7 +212,7 @@ void fastestPath(int start, int finish){
 			} else {
 				break;
 			}
-		}while(true);
+		}while(1);
 		
 		
 		
@@ -238,9 +248,9 @@ void fastestPath(int start, int finish){
 						node->afters = way;
 					}
 				} else {
-					t = t->previous;
+					temp = temp->previous;
 				}
-			}while(t&&t->distance>=start);
+			}while(temp&&temp->distance>=start);
 			
 			//go to the next node
 			if(node->other_way){
@@ -250,7 +260,7 @@ void fastestPath(int start, int finish){
 			} else {
 				break;
 			}
-		}while(true);
+		}while(1);
 	}
 	
 	
