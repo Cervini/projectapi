@@ -183,7 +183,7 @@ void addReachable(struct path* node, int finish){
 void route(int start, int finish){
 	//simple cases
 	if(start==finish){
-		printf(" %d", &start);
+		printf(" %d",start);
 		return;
 	}
 	struct stop* starting = getStop(start);
@@ -232,7 +232,7 @@ void printDistances(){
 
 int main(int argc, char *argv[]){
 	struct stop* stops = NULL; //create empty list of stations
-	char input[20];
+	char input[21];
 	scanf("%s", input);
 	while(input){
 		if(strcmp(input,"aggiungi-stazione")){
