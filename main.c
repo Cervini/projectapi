@@ -140,23 +140,47 @@ int bestVehicle(int distance){
 	}
 }
 
+void printTreeContent(struct path* root) {
+    if (root == NULL) {
+        return;
+    }
+
+    // Print the distance of the stop in the current node
+    printf("Stop distance: %d\n", root->stop->distance);
+
+    // Recursively print content of 'before', 'afters', and 'other_way' branches
+    printTreeContent(root->before);
+    printTreeContent(root->afters);
+    printTreeContent(root->other_way);
+}
+
+//adds to the node all the reachable stops as children
 void addReachable(struct path* node, int finish){
 	//get the distance of the stop in the node
 	int from  = node->stop->distance;
 	//start to travel from node's stop
 	struct stop* traveller = node->stop;
+	int autonomy = bestVehicle(traveller->distance);
 	do{
-		//add node if needed
+		//check if stop is reachable
+		if(traveller->distance-from<=autonomy){
+			//stop is reachable
+			struct path* newNode = (struct path*)malloc(sizeof(struct path));
+			//set the stop as the node one
+			newNode->stop = traveller;
+			//set the node as the father of the new one
+			newNode->before = node;
+			//add the new node to the children of node
+			newNode->other_way = node->afters;
+			node->afters = newNode;
+			addReachable(newNode, finish);
+		}
+		traveller = traveller->next;
 	}while(traveller&&(traveller->distance<=finish));
+	return;
 }
 
 void route(int start, int finish){
-	
-}
-
-
-
-void fastestPath(int start, int finish){
 	//simple cases
 	if(start==finish){
 		printf(" %d", &start);
@@ -167,103 +191,11 @@ void fastestPath(int start, int finish){
 		printf("nessun percorso\n");
 		return;
 	}
-	
-	
-	//if distance is increasing
-	if(start<=finish){
-		//look for vehicle with the longest autonomy
-		int current = bestVehicle(start);
-		//create a tree with all the possible paths
-		struct path* tree = (struct path*)malloc(sizeof(struct path));
-		//set as root the starting stop
-		tree->stop = getStop(start);
-		
-		//use t to travel along the stops and n to bulid the tree
-		struct path* node = tree;
-		struct stop* temp = getStop(finish);
-		do{
-			//add all the reachable stops to the node
-			do{
-				//set 'road' ad the distance between the stop currently observed and t
-				int road = temp->distance - start;
-				if(road<=current){
-					//if the stop 't' is reachable create a new node on the tree
-					struct path* way = (struct path*)malloc(sizeof(struct path));
-					way->stop = temp;
-					way->before = node;
-					if(!node->afters){
-						//if the node has no children set the new node as one
-						node->afters = way;
-					} else {
-						//if the node already has children add the new one to the list
-						way->other_way = node->afters;
-						node->afters = way;
-					}
-				} else {
-					temp = temp->previous;
-				}
-			}while(temp&&temp->distance>=start);
-			
-			//go to the next node
-			if(node->other_way){
-				node = node->other_way;
-			} else if(node->afters){
-				node = node->afters;
-			} else {
-				break;
-			}
-		}while(1);
-		
-		
-		
-		
-	} else { //TODO
-		
-		//look for vehicle with the longest autonomy
-		int current = bestVehicle(start);
-		//create a tree with all the possible paths
-		struct path* tree = (struct path*)malloc(sizeof(struct path));
-		//set as root the starting stop
-		tree->stop = getStop(start);
-		
-		//use t to travel along the stops and n to bulid the tree
-		struct path* node = tree;
-		struct stop* temp = getStop(finish);
-		do{
-			//add all the reachable stops to the node
-			do{
-				//set 'road' ad the distance between the stop currently observed and t
-				int road = temp->distance - start;
-				if(road<=current){
-					//if the stop 't' is reachable create a new node on the tree
-					struct path* way = (struct path*)malloc(sizeof(struct path));
-					way->stop = temp;
-					way->before = node;
-					if(!node->afters){
-						//if the node has no children set the new node as one
-						node->afters = way;
-					} else {
-						//if the node already has children add the new one to the list
-						way->other_way = node->afters;
-						node->afters = way;
-					}
-				} else {
-					temp = temp->previous;
-				}
-			}while(temp&&temp->distance>=start);
-			
-			//go to the next node
-			if(node->other_way){
-				node = node->other_way;
-			} else if(node->afters){
-				node = node->afters;
-			} else {
-				break;
-			}
-		}while(1);
-	}
-	
-	
+	struct path* root = (struct path*)malloc(sizeof(struct path));
+	root->stop = getStop(start);
+	tree = root;
+	addReachable(tree, finish);
+	printTreeContent(tree);
 }
 
 //this method prints the values of a list of vehicles
@@ -332,7 +264,7 @@ int main(int argc, char *argv[]){
 		} else if(strcmp(input,"pianifica-percorso")){
 			int partenza, arrivo;
 			scanf("%d %d", &partenza, &arrivo);
-			fastestPath(partenza, arrivo);
+			route(partenza, arrivo);
 			break;
 		} else {
 			printf("Should not end here");
