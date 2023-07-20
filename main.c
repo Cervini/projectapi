@@ -34,19 +34,20 @@ struct path* tree = NULL;
 //returns the stop with the defined distance
 struct stop* getStop(int distance){
 	struct stop* t = stops; //get the beginning of the stops list
-	do{
+	while(t){
 		if(t->distance==distance)
 			//if the distance is the wanted one return the stop
 			return t;
 		t = t->next; //go to the next stop
-	}while(t);
+	}
 	//if the wanted stop doesn't exist return null
 	return NULL;
 }
 
 //adds a new stop with the defined distance
 void addStop(int distance){
-	if(getStop(distance)){
+	//check if stop already exist
+	if(getStop(distance)!=NULL){
 		printf("non aggiunta\n");
 		return;
 	}
@@ -63,8 +64,8 @@ void addStop(int distance){
 	}
 	struct stop* t = stops;
 	while(t->next != NULL){
-	//go to the end of the list
-	t = t->next;
+		//go to the end of the list
+		t = t->next;
 	}
 	temp->previous = t; //set the last stop as the previous of the newly added item
 	t->next = temp; //set the newly added item as the last
@@ -232,10 +233,11 @@ void printDistances(){
 
 int main(int argc, char *argv[]){
 	struct stop* stops = NULL; //create empty list of stations
+	
+	//TODO: fix here [segmentation fault (core dumped)]
 	char input[21];
-	scanf("%s", input);
-	while(input){
-		if(strcmp(input,"aggiungi-stazione")){
+	while(scanf("%s", input)){
+		if(strcmp(input,"aggiungi-stazione")==0){
 			int distanza, numero;
 			scanf("%d %d", &distanza, &numero);
 			addStop(distanza);
@@ -246,22 +248,22 @@ int main(int argc, char *argv[]){
 				addVehicle(distanza, autonomia);
 			}
 			break;
-		} else if(strcmp(input,"demolisci-stazione")) {
+		} else if(strcmp(input,"demolisci-stazione")==0) {
 			int distanza;
 			scanf("%d", &distanza);
 			deleteStop(distanza);
 			break;
-		} else if(strcmp(input,"aggiungi-auto")){
+		} else if(strcmp(input,"aggiungi-auto")==0){
 			int distanza, autonomia;
 			scanf("%d %d", &distanza, &autonomia);
 			addVehicle(distanza, autonomia);
 			break;
-		} else if(strcmp(input,"rottama-auto")){
+		} else if(strcmp(input,"rottama-auto")==0){
 			int distanza, autonomia;
 			scanf("%d %d", &distanza, &autonomia);
 			deleteVehicle(distanza, autonomia);
 			break;
-		} else if(strcmp(input,"pianifica-percorso")){
+		} else if(strcmp(input,"pianifica-percorso")==0){
 			int partenza, arrivo;
 			scanf("%d %d", &partenza, &arrivo);
 			route(partenza, arrivo);
