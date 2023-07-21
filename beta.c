@@ -17,12 +17,12 @@ typedef struct stop{
   struct stop* previous;
 }stop;
 
-typedef struct path{
+typedef struct node{
 	struct stop* stop;
-	struct path* before;
-	struct path* afters;
-	struct path* other_way;
-}path;
+	struct node* father;
+	struct node* children;
+	struct node* sibling;
+}node;
 
 //= GLOBAL VARIABLES ===========================================================
 
@@ -88,26 +88,30 @@ int addVehicle(int distance, int autonomy){
 	struct stop* station = getStation(distance);
 	if(station != NULL){
 		struct vehicle* backup;
-		struct vehicle* pointer = station->vehicles;
 		struct vehicle* new_vehicle = (struct vehicle*)malloc(sizeof(struct vehicle));
 		new_vehicle->value = autonomy;
 		//empty list
 		if(station->vehicles == NULL){
+			new_vehicle->previous = NULL;
+			new_vehicle->next = NULL;
 			station->vehicles = new_vehicle;
 			return 1;
 		}
 		//new one is the biggest
-		if(pointer->value < autonomy){
-			new_vehicle->next = pointer;
+		if(station->vehicles->value <= autonomy){
+			new_vehicle->next = station->vehicles;
 			new_vehicle->previous = NULL;
+			station->vehicles->previous = new_vehicle;
 			station->vehicles = new_vehicle;
 			return 1;
 		}
+		struct vehicle* pointer = station->vehicles;
 		while(pointer){
 			if(pointer->value < autonomy){
 				pointer->previous->next = new_vehicle;
-				new_vehicle->next = pointer;
 				new_vehicle->previous = pointer->previous;
+				pointer->previous = new_vehicle;
+				new_vehicle->next = pointer;
 				return 1;
 			}
 			if(pointer->next == NULL){
@@ -124,6 +128,61 @@ int addVehicle(int distance, int autonomy){
 	return 0;
 }
 
+void deleteStation(int distance){
+	struct stop* station = getStation(distance);
+	if(!station){
+		printf("non demolita\n");
+		return;
+	}
+	if(station->next != NULL)
+		station->next->previous = station->previous;
+	if(station->previous != NULL)
+		station->previous->next = station->next;
+	else
+		stops = station->next;
+	printf("demolita\n");
+}
+
+void deleteVehicle(int distance, int value){
+	struct stop* station = getStation(distance);
+	if(!station||!station->vehicles){
+		printf("non rottamata\n");
+		return;
+	}
+	struct vehicle* traveller = station->vehicles;
+	while(traveller){
+		if(traveller->value == value){
+			if(traveller->next != NULL)
+				traveller->next->previous = traveller->previous;
+			if(traveller->previous != NULL)
+				traveller->previous->next = traveller->next;
+			else
+				station->vehicles = traveller->next;
+			printf("rottamata\n");
+			return;
+		}
+		traveller = traveller->next;
+	}
+	printf("non rottamata\n");
+}
+
+struct node* buildTree(int start, int finish){
+	struct node* root = (struct node*)malloc(sizeof(struct node));
+	root->stop = getStation(start);
+	root->father = NULL;
+	root->sibling = NULL;
+	
+}
+
+void shortestBranch(struct node* root){
+
+}
+
+void planPath(int start, int finish){
+	struct node* root = buildTree(start,finish);
+	shortestBranch(root);
+}
+
 //= TESTING METHODS ============================================================
 
 //this method prints the values of a list of vehicles
@@ -138,6 +197,23 @@ void printVehicles(int distance){
 		printf(" %d", t->value);
 		t= t->next;
 	}while(t);
+	printf("\n");
+}
+
+void printVehiclesReverse(int distance){
+	struct stop* stop = getStation(distance);
+	if(!stop->vehicles){
+		printf("\n");
+		return;
+	}
+	struct vehicle* t = stop->vehicles;
+	while(t->next!=NULL){
+		t = t->next;
+	}
+	while(t){
+		printf(" %d", t->value);
+		t = t->previous;
+	}
 	printf("\n");
 }
 
@@ -180,21 +256,22 @@ int main(int argc, char *argv[]){
 			}
 		} else if(strcmp(input,"stampa-stazioni")==0){
 			printDistances();
-		}
-
-		/* else if(strcmp(input,"demolisci-stazione")==0) {
+		} else if(strcmp(input,"demolisci-stazione")==0) {
 			int distanza;
 			scanf("%d", &distanza);
-			deleteStop(distanza);
+			deleteStation(distanza);
 		} else if(strcmp(input,"aggiungi-auto")==0){
 			int distanza, autonomia;
 			scanf("%d %d", &distanza, &autonomia);
-			addVehicle(distanza, autonomia);
+			if(addVehicle(distanza, autonomia) == 1)
+				printf("aggiunta\n");
+			else
+				printf("non aggiunta\n");
 		} else if(strcmp(input,"rottama-auto")==0){
 			int distanza, autonomia;
 			scanf("%d %d", &distanza, &autonomia);
 			deleteVehicle(distanza, autonomia);
-		} else if(strcmp(input,"pianifica-percorso")==0){
+		} /*else if(strcmp(input,"pianifica-percorso")==0){
 			int partenza, arrivo;
 			scanf("%d %d", &partenza, &arrivo);
 			route(partenza, arrivo);
