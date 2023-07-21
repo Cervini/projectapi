@@ -27,7 +27,7 @@ typedef struct node{
 //= GLOBAL VARIABLES ===========================================================
 
 struct stop* stops = NULL;
-struct path* tree = NULL;
+struct node* tree = NULL;
 
 //= METHODS ====================================================================
 
@@ -166,37 +166,51 @@ void deleteVehicle(int distance, int value){
 	printf("non rottamata\n");
 }
 
-struct node* createNode(struct stop* stop){
+struct node* createNodeFromDistance(int distance){
 	struct node* root = (struct node*)malloc(sizeof(struct node));
-	root->stop = stop;
+	root->stop = getStation(distance);
+	return root;
 }
 
-void addChild(struct stop* father, struct stop* child){
-	node->father = father;
-	node->sibling = father->children;
-	father->children = node;
+void addChild(struct node* father, struct node* child){
+	child->father = father;
+	child->sibling = father->children;
+	father->children = child;
 }
 
-struct node* buildTree(int start, int finish){
-	struct node* root = createNode(getStation(start));
-
-	int starting_distance = root->stop->distance, reachable_distance = root->stop->vehicles->value;
-	struct stop* traveller = getStation(start);
+void scanReachable(struct node* node){
+	int starting_distance = node->stop->distance, reachable_distance = node->stop->vehicles->value;
+	struct stop* traveller = node->stop;
 	while(traveller){
-		if(traveller->distance - starting_distance < reachable_distance){
-			addChild(root, createNode(traveller));
+		if(traveller->distance-starting_distance < reachable_distance){
+			addChild(node, createNodeFromDistance(traveller->distance));
 		}
 		traveller = traveller->next;
 	}
+
+	//after all children have been added scan from them
+	struct node* to_scan = node->children;
+	while(to_scan){
+		scanReachable(to_scan);
+		to_scan = to_scan->sibling;
+	}
 }
+
+struct node* buildTree(int start, int finish){
+	struct node* root = createNodeFromDistance(start);
+
+	scanReachable(root);
+}
+
 
 void shortestBranch(struct node* root){
 
 }
 
 void planPath(int start, int finish){
-	struct node* root = buildTree(start,finish);
-	shortestBranch(root);
+
+	tree = buildTree(start,finish);
+	shortestBranch(tree);
 }
 
 //= TESTING METHODS ============================================================
