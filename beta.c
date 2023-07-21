@@ -166,12 +166,28 @@ void deleteVehicle(int distance, int value){
 	printf("non rottamata\n");
 }
 
-struct node* buildTree(int start, int finish){
+struct node* createNode(struct stop* stop){
 	struct node* root = (struct node*)malloc(sizeof(struct node));
-	root->stop = getStation(start);
-	root->father = NULL;
-	root->sibling = NULL;
-	
+	root->stop = stop;
+}
+
+void addChild(struct stop* father, struct stop* child){
+	node->father = father;
+	node->sibling = father->children;
+	father->children = node;
+}
+
+struct node* buildTree(int start, int finish){
+	struct node* root = createNode(getStation(start));
+
+	int starting_distance = root->stop->distance, reachable_distance = root->stop->vehicles->value;
+	struct stop* traveller = getStation(start);
+	while(traveller){
+		if(traveller->distance - starting_distance < reachable_distance){
+			addChild(root, createNode(traveller));
+		}
+		traveller = traveller->next;
+	}
 }
 
 void shortestBranch(struct node* root){
