@@ -174,32 +174,66 @@ struct node* createNodeFromDistance(int distance){
 
 void addChild(struct node* father, struct node* child){
 	child->father = father;
-	child->sibling = father->children;
-	father->children = child;
+	if(father->children != NULL){
+		struct node* traveller = father->children;
+		while(traveller->sibling != NULL){
+			traveller = traveller->sibling;
+		}
+		traveller->sibling = child;
+	} else {
+		father->children = child;
+	}
+	child->sibling = NULL;
 }
 
-void scanReachable(struct node* node){
+void scanReachable(struct node* node, int finish){
+	printf("\n - scanning from stop %d\n", node->stop->distance);
+	//stop if scanning too far
+	if(node->stop->distance>finish)
+		return;
+	printf(" - The stop being scanned is not the destination...\n");
 	int starting_distance = node->stop->distance, reachable_distance = node->stop->vehicles->value;
-	struct stop* traveller = node->stop;
-	while(traveller){
-		if(traveller->distance-starting_distance < reachable_distance){
+	printf(" - From this stop (%d) you can travel up to %dkm ahead\n", starting_distance, reachable_distance);
+	struct stop* traveller;
+	if(node->stop->next)
+		traveller = node->stop->next;
+	//add all the children to the node
+	printf(" - Starting to scan all the stops reachable by the stop in the node\n");
+	while(traveller!=NULL){
+		printf(" - The stop reached has the distance %d\n", traveller->distance);
+		//check if the stop is the destination
+		if(traveller->distance==finish){
+			printf(" - From this station the destination is reachable, add node and stop scanning\n" );
+			//if it is it's the last node that need to be added
+			addChild(node, createNodeFromDistance(traveller->distance));
+			break;
+		}
+		if(traveller->distance-starting_distance <= reachable_distance){
+			printf(" - The stop is reachable, add node to the tree\n");
 			addChild(node, createNodeFromDistance(traveller->distance));
 		}
 		traveller = traveller->next;
 	}
 
-	//after all children have been added scan from them
+	printf(" - All the reachable nodes from %d have been added to the tree, pass to scanning from them\n", node->stop->distance);
+	//after all children have been added if the destination has not been reached
 	struct node* to_scan = node->children;
+	//scan from all the children of the current node
 	while(to_scan){
-		scanReachable(to_scan);
-		to_scan = to_scan->sibling;
+		printf(" - Calling scanning method from %d", to_scan->stop->distance);
+		if(to_scan->stop->distance != finish){
+			scanReachable(to_scan, finish);
+			to_scan = to_scan->sibling;
+		} else {
+			return;
+		}
 	}
 }
 
 struct node* buildTree(int start, int finish){
 	struct node* root = createNodeFromDistance(start);
 
-	scanReachable(root);
+	scanReachable(root, finish);
 }
 
 
@@ -301,11 +335,11 @@ int main(int argc, char *argv[]){
 			int distanza, autonomia;
 			scanf("%d %d", &distanza, &autonomia);
 			deleteVehicle(distanza, autonomia);
-		} /*else if(strcmp(input,"pianifica-percorso")==0){
+		} else if(strcmp(input,"pianifica-percorso")==0){
 			int partenza, arrivo;
 			scanf("%d %d", &partenza, &arrivo);
-			route(partenza, arrivo);
-		} */ else {
+			planPath(partenza, arrivo);
+		} else {
 			printf("Not a command\n");
 		}
 	}
