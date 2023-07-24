@@ -65,6 +65,7 @@ int addStation(int distance){
 			struct stop* new_stop = (struct stop*)malloc(sizeof(struct stop));
 			new_stop->distance = distance;
 			if(pointer->distance > distance){
+				stops->previous = new_stop;
 				new_stop->next = pointer;
 				new_stop->previous = NULL;
 				stops = new_stop;
@@ -142,12 +143,16 @@ void deleteStation(int distance){
 		printf("non demolita\n");
 		return;
 	}
-	if(station->next != NULL)
-		station->next->previous = station->previous;
-	if(station->previous != NULL)
-		station->previous->next = station->next;
-	else
+	if(station->previous != NULL){
+		if(station->next != NULL){
+			station->next->previous = station->previous;
+			station->previous->next = station->next;
+		} else {
+			station->previous->next = NULL;
+		}
+	} else {
 		stops = station->next;
+	}
 	printf("demolita\n");
 }
 
@@ -204,13 +209,12 @@ void possibleResult(struct node* node){
 }
 
 void scanReachable(struct node* node, int finish, int level){
-	printf(" - At this moment level is: %d\n", level);
 	level++;
 	//stop if scanning too far
 	if(node->stop->distance>finish)
 		return;
 	int starting_distance = node->stop->distance, reachable_distance = node->stop->vehicles->value;
-	struct stop* traveller;
+	struct stop* traveller = NULL;
 	if(node->stop->next)
 		traveller = node->stop->next;
 	//add all the children to the node
@@ -223,7 +227,6 @@ void scanReachable(struct node* node, int finish, int level){
 				addChild(node, child);
 				//add the node to the possibilities
 				possibleResult(child);
-				printf(" - Destination reached, stop scanning\n");
 				break;
 			} else {
 				addChild(node, createNodeFromDistance(traveller->distance, level));
@@ -236,7 +239,6 @@ void scanReachable(struct node* node, int finish, int level){
 	//scan from all the children of the current node
 	while(to_scan){
 		if(to_scan->stop->distance != finish){
-			printf(" - Scanning from stop %d\n", to_scan->stop->distance);
 			scanReachable(to_scan, finish, level);
 			to_scan = to_scan->sibling;
 		} else {
@@ -245,9 +247,52 @@ void scanReachable(struct node* node, int finish, int level){
 	}
 }
 
-struct node* buildTree(int start, int finish){
+void scanReachableReverse(struct node* node, int finish, int level){
+	level++;
+	//stop if scanning too far
+	if(node->stop->distance<finish)
+		return;
+	int starting_distance = node->stop->distance, reachable_distance = node->stop->vehicles->value;
+	struct stop* traveller = NULL;
+	if(node->stop->previous)
+		traveller = node->stop->previous;
+	//add all the children to the node
+	while((traveller!=NULL) && (traveller->distance >= finish)){
+		//check if the stop is the destination
+		if(starting_distance-traveller->distance <= reachable_distance){
+			if(traveller->distance==finish){
+				struct node* child = createNodeFromDistance(traveller->distance, level);
+				//if it is, it's the last node that needs to be added
+				addChild(node, child);
+				//add the node to the possibilities
+				possibleResult(child);
+				break;
+			} else {
+				addChild(node, createNodeFromDistance(traveller->distance, level));
+			}
+		}
+		traveller = traveller->previous;
+	}
+	//after all children have been added if the destination has not been reached
+	struct node* to_scan = node->children;
+	//scan from all the children of the current node
+	while(to_scan){
+		if(to_scan->stop->distance != finish){
+			scanReachableReverse(to_scan, finish, level);
+			to_scan = to_scan->sibling;
+		} else {
+			return;
+		}
+	}
+}
+
+void buildTree(int start, int finish){
 	struct node* root = createNodeFromDistance(start, 1);
-	scanReachable(root, finish, 1);
+	if(start < finish){
+		scanReachable(root, finish, 1);
+	} else {
+		scanReachableReverse(root, finish, 1);
+	}
 }
 
 void shortestBranch(){
@@ -265,30 +310,27 @@ void shortestBranch(){
 			}
 			traveller = traveller->next;
 		}
-
-
 		int l = best->level;
-
-		//TODO find best way to memorize
-
 		int path[l], i;
 		for(i=l-1; i>-1; i--){
 			path[i] = best->stop->distance;
 			best = best->father;
 		}
-
 		for(i=0; i<l; i++){
 			printf("%d ", path[i]);
 		}
-
 		printf("\n");
 
 	}
 }
 
 void planPath(int start, int finish){
-	tree = buildTree(start,finish);
-	shortestBranch();
+	if(start==finish){
+		printf("%d\n", start);
+	} else {
+		buildTree(start,finish);
+		shortestBranch();
+	}
 }
 
 //= TESTING METHODS ============================================================
@@ -340,17 +382,35 @@ void printDistances(){
 	}while(t != NULL);
 }
 
+void printDistancesReverse(){
+	if(!stops){
+		printf("empty list\n");
+		return;
+	}
+	printf("Stop distances:\n");
+	struct stop* t = stops;
+	while(t->next!=NULL){
+		t = t->next;
+	}
+	while(t){
+		printf("%d ", t->distance);
+		printVehicles(t->distance);
+		t = t->previous;
+	}
+	printf("\n");
+
+}
+
 //= MAIN =======================================================================
 
 int main(int argc, char *argv[]){
-	struct stop* stops = NULL; //create empty list of stations
-
 	char input[21];
-	while(scanf("%s", input) == 1){
+	while(scanf("%s", input)==1){
 		fflush(stdin);
 		if(strcmp(input,"aggiungi-stazione")==0){
 			int distanza, numero, i;
-			scanf("%d %d", &distanza, &numero);
+			if(scanf("%d %d", &distanza, &numero)<1)
+				break;
 			fflush(stdin);
 			if(addStation(distanza) == 1){
 				printf("aggiunta\n");
@@ -359,29 +419,34 @@ int main(int argc, char *argv[]){
 			}
 			for(i=0; i<numero; i++){
 				int autonomia;
-				scanf("%d", &autonomia);
+				if(scanf("%d", &autonomia)<1)
+					break;
 				addVehicle(distanza, autonomia);
 			}
 		} else if(strcmp(input,"stampa-stazioni")==0){
-			printDistances();
+			printDistancesReverse();
 		} else if(strcmp(input,"demolisci-stazione")==0) {
 			int distanza;
-			scanf("%d", &distanza);
+			if(scanf("%d", &distanza)!=1)
+				break;
 			deleteStation(distanza);
 		} else if(strcmp(input,"aggiungi-auto")==0){
 			int distanza, autonomia;
-			scanf("%d %d", &distanza, &autonomia);
+			if(scanf("%d %d", &distanza, &autonomia)<1)
+				break;
 			if(addVehicle(distanza, autonomia) == 1)
 				printf("aggiunta\n");
 			else
 				printf("non aggiunta\n");
 		} else if(strcmp(input,"rottama-auto")==0){
 			int distanza, autonomia;
-			scanf("%d %d", &distanza, &autonomia);
+			if(scanf("%d %d", &distanza, &autonomia)<1)
+				break;
 			deleteVehicle(distanza, autonomia);
 		} else if(strcmp(input,"pianifica-percorso")==0){
 			int partenza, arrivo;
-			scanf("%d %d", &partenza, &arrivo);
+			if(scanf("%d %d", &partenza, &arrivo)<1)
+				break;
 			planPath(partenza, arrivo);
 		} else {
 			printf("Not a command\n");
