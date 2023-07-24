@@ -76,6 +76,7 @@ int addStation(int distance){
 					pointer->previous->next = new_stop;
 					new_stop->next = pointer;
 					new_stop->previous = pointer->previous;
+					pointer->previous = new_stop;
 					return 1;
 				}
 				if(pointer->next == NULL){
@@ -203,9 +204,17 @@ void addChild(struct node* father, struct node* child){
 //add node to possible
 void possibleResult(struct node* node){
 	struct node_list* new_node_list = (struct node_list*)malloc(sizeof(struct node_list));
-	new_node_list->next = possible;
 	new_node_list->node = node;
-	possible = new_node_list;
+	new_node_list->next = NULL;
+	if(possible == NULL){
+		possible = new_node_list;
+		return;
+	}
+	struct node_list* traveller = possible;
+	while(traveller->next != NULL){
+		traveller = traveller->next;
+	}
+	traveller->next = new_node_list;
 }
 
 void scanReachable(struct node* node, int finish, int level){
@@ -316,8 +325,10 @@ void shortestBranch(){
 			path[i] = best->stop->distance;
 			best = best->father;
 		}
-		for(i=0; i<l; i++){
-			printf("%d ", path[i]);
+		printf("%d", path[0]);
+		for(i=1; i<l; i++){
+			printf(" %d", path[i]);
+
 		}
 		printf("\n");
 
