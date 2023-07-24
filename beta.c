@@ -19,15 +19,23 @@ typedef struct stop{
 
 typedef struct node{
 	struct stop* stop;
+	int level;
 	struct node* father;
 	struct node* children;
 	struct node* sibling;
 }node;
 
+typedef struct node_list{
+	struct node* node;
+	struct node_list* next;
+}node_list;
+
 //= GLOBAL VARIABLES ===========================================================
 
 struct stop* stops = NULL;
 struct node* tree = NULL;
+struct node_list* possible = NULL;
+struct stop* path = NULL;
 
 //= METHODS ====================================================================
 
@@ -166,9 +174,10 @@ void deleteVehicle(int distance, int value){
 	printf("non rottamata\n");
 }
 
-struct node* createNodeFromDistance(int distance){
+struct node* createNodeFromDistance(int distance, int level){
 	struct node* root = (struct node*)malloc(sizeof(struct node));
 	root->stop = getStation(distance);
+	root->level = level;
 	return root;
 }
 
@@ -186,43 +195,49 @@ void addChild(struct node* father, struct node* child){
 	child->sibling = NULL;
 }
 
-void scanReachable(struct node* node, int finish){
-	printf("\n - scanning from stop %d\n", node->stop->distance);
+//add node to possible
+void possibleResult(struct node* node){
+	struct node_list* new_node_list = (struct node_list*)malloc(sizeof(struct node_list));
+	new_node_list->next = possible;
+	new_node_list->node = node;
+	possible = new_node_list;
+}
+
+void scanReachable(struct node* node, int finish, int level){
+	printf(" - At this moment level is: %d\n", level);
+	level++;
 	//stop if scanning too far
 	if(node->stop->distance>finish)
 		return;
-	printf(" - The stop being scanned is not the destination...\n");
 	int starting_distance = node->stop->distance, reachable_distance = node->stop->vehicles->value;
-	printf(" - From this stop (%d) you can travel up to %dkm ahead\n", starting_distance, reachable_distance);
 	struct stop* traveller;
 	if(node->stop->next)
 		traveller = node->stop->next;
 	//add all the children to the node
-	printf(" - Starting to scan all the stops reachable by the stop in the node\n");
-	while(traveller!=NULL){
-		printf(" - The stop reached has the distance %d\n", traveller->distance);
+	while((traveller!=NULL) && (traveller->distance <= finish)){
 		//check if the stop is the destination
-		if(traveller->distance==finish){
-			printf(" - From this station the destination is reachable, add node and stop scanning\n" );
-			//if it is it's the last node that need to be added
-			addChild(node, createNodeFromDistance(traveller->distance));
-			break;
-		}
 		if(traveller->distance-starting_distance <= reachable_distance){
-			printf(" - The stop is reachable, add node to the tree\n");
-			addChild(node, createNodeFromDistance(traveller->distance));
+			if(traveller->distance==finish){
+				struct node* child = createNodeFromDistance(traveller->distance, level);
+				//if it is, it's the last node that needs to be added
+				addChild(node, child);
+				//add the node to the possibilities
+				possibleResult(child);
+				printf(" - Destination reached, stop scanning\n");
+				break;
+			} else {
+				addChild(node, createNodeFromDistance(traveller->distance, level));
+			}
 		}
 		traveller = traveller->next;
 	}
-
-	printf(" - All the reachable nodes from %d have been added to the tree, pass to scanning from them\n", node->stop->distance);
 	//after all children have been added if the destination has not been reached
 	struct node* to_scan = node->children;
 	//scan from all the children of the current node
 	while(to_scan){
-		printf(" - Calling scanning method from %d", to_scan->stop->distance);
 		if(to_scan->stop->distance != finish){
-			scanReachable(to_scan, finish);
+			printf(" - Scanning from stop %d\n", to_scan->stop->distance);
+			scanReachable(to_scan, finish, level);
 			to_scan = to_scan->sibling;
 		} else {
 			return;
@@ -231,20 +246,49 @@ void scanReachable(struct node* node, int finish){
 }
 
 struct node* buildTree(int start, int finish){
-	struct node* root = createNodeFromDistance(start);
-
-	scanReachable(root, finish);
+	struct node* root = createNodeFromDistance(start, 1);
+	scanReachable(root, finish, 1);
 }
 
+void shortestBranch(){
+	if(possible == NULL){
+		printf("nessun percorso\n");
+	} else {
+		//look for the node with the lowest level in "possible" list
+		struct node_list* traveller = possible;
+		int min = possible->node->level;
+		struct node* best = possible->node;
+		while(traveller){
+			if(traveller->node->level < min){
+				best = traveller->node;
+				min = best->level;
+			}
+			traveller = traveller->next;
+		}
 
-void shortestBranch(struct node* root){
 
+		int l = best->level;
+
+		//TODO find best way to memorize
+
+		int path[l], i;
+		for(i=l-1; i>-1; i--){
+			path[i] = best->stop->distance;
+			best = best->father;
+		}
+
+		for(i=0; i<l; i++){
+			printf("%d ", path[i]);
+		}
+
+		printf("\n");
+
+	}
 }
 
 void planPath(int start, int finish){
-
 	tree = buildTree(start,finish);
-	shortestBranch(tree);
+	shortestBranch();
 }
 
 //= TESTING METHODS ============================================================
