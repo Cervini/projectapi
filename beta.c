@@ -243,7 +243,7 @@ void scanReachable(struct node* node, int finish, int level){
 	struct node* to_scan = node->children;
 	//scan from all the children of the current node
 	while(to_scan){
-		if(to_scan->stop->distance != finish)&&(to_scan->stop->distance!=node->stop->distance){
+		if(to_scan->stop->distance != finish){
 			scanReachable(to_scan, finish, level);
 			to_scan = to_scan->sibling;
 		} else {
@@ -255,7 +255,7 @@ void scanReachable(struct node* node, int finish, int level){
 void scanReachableReverse(struct node* node, int finish, int level){
 	level++;
 	if(possible_best != NULL){
-		if(possible_best->level <= level)
+		if(possible_best->level < level)
 			return;
 	}
 	//stop if scanning too far
