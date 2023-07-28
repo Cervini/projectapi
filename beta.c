@@ -5,9 +5,9 @@
 //= STRUCTURES =================================================================
 
 typedef struct vehicle{
+	int value;
 	struct vehicle* next;
 	struct vehicle* previous;
-	int value;
 }vehicle;
 
 typedef struct stop{
@@ -18,8 +18,8 @@ typedef struct stop{
 }stop;
 
 typedef struct node{
-	struct stop* stop;
 	int level;
+	struct stop* stop;
 	struct node* father;
 	struct node* children;
 	struct node* sibling;
@@ -30,7 +30,35 @@ typedef struct node{
 struct stop* stops = NULL;
 struct node* tree = NULL;
 struct node* possible_best = NULL;
-struct stop* path = NULL;
+
+//= CLEANING METHODS ===========================================================
+
+void freeStop(struct stop* start){
+	struct stop* cleaner = NULL;
+	struct stop* garbage = NULL;
+	cleaner = start;
+	while(cleaner){
+		garbage = cleaner;
+		cleaner = cleaner->next;
+		free(garbage);
+	}
+}
+
+void freeTree(struct node* branch){
+	if(branch != NULL){
+		if(branch->children == NULL){
+			free(branch);
+		} else {
+			struct node* child = branch->children;
+			struct node* garbage = NULL;
+			while(child){
+				garbage = child;
+				child = child->sibling;
+				freeTree(garbage);
+			}
+		}
+	}
+}
 
 //= METHODS ====================================================================
 
@@ -100,35 +128,39 @@ int addVehicle(int distance, int autonomy){
 			new_vehicle->previous = NULL;
 			new_vehicle->next = NULL;
 			station->vehicles = new_vehicle;
+			new_vehicle = NULL;
 			return 1;
-		}
-		//new one is the biggest
-		if(station->vehicles->value <= autonomy){
-			new_vehicle->next = station->vehicles;
-			new_vehicle->previous = NULL;
-			station->vehicles->previous = new_vehicle;
-			station->vehicles = new_vehicle;
-			return 1;
-		}
-		struct vehicle* pointer = station->vehicles;
-		while(pointer){
-			if(pointer->value < autonomy){
-				pointer->previous->next = new_vehicle;
-				new_vehicle->previous = pointer->previous;
-				pointer->previous = new_vehicle;
-				new_vehicle->next = pointer;
+		} else {
+			//new one is the biggest
+			if(station->vehicles->value <= autonomy){
+				new_vehicle->next = station->vehicles;
+				new_vehicle->previous = NULL;
+				station->vehicles->previous = new_vehicle;
+				station->vehicles = new_vehicle;
 				return 1;
 			}
-			if(pointer->next == NULL){
-				backup = pointer;
+			struct vehicle* pointer = station->vehicles;
+			while(pointer){
+				if(pointer->value < autonomy){
+					pointer->previous->next = new_vehicle;
+					new_vehicle->previous = pointer->previous;
+					pointer->previous = new_vehicle;
+					new_vehicle->next = pointer;
+					new_vehicle = NULL;
+					return 1;
+				}
+				if(pointer->next == NULL){
+					backup = pointer;
+				}
+				pointer = pointer->next;
 			}
-			pointer = pointer->next;
+			pointer = NULL;
+			new_vehicle->next = NULL;
+			new_vehicle->previous = backup;
+			backup->next = new_vehicle;
+			new_vehicle = NULL;
+			return 1;
 		}
-		pointer = NULL;
-		new_vehicle->next = NULL;
-		new_vehicle->previous = backup;
-		backup->next = new_vehicle;
-		return 1;
 	}
 	return 0;
 }
@@ -343,6 +375,7 @@ void planPath(int start, int finish){
 		buildTree(start,finish);
 		printPath();
 	}
+	freeTree(tree);
 }
 
 //= TESTING METHODS ============================================================
@@ -423,13 +456,14 @@ int main(int argc, char *argv[]){
 			int distanza, numero, i;
 			if(scanf("%d %d", &distanza, &numero)<1)
 				break;
-			fflush(stdin);
+			//printf(" -> aggiungi-stazione %d\n", distanza);
 			if(addStation(distanza) == 1){
 				printf("aggiunta\n");
 				for(i=0; i<numero; i++){
 					int autonomia;
 					if(scanf("%d", &autonomia)<1)
 						break;
+					//printf(" -> aggiungendo veicolo %d\n", autonomia);
 					addVehicle(distanza, autonomia);
 				}
 			} else {
@@ -471,5 +505,7 @@ int main(int argc, char *argv[]){
 			printf("Not a command\n");
 		}
 	}
+	if(stops != NULL)
+		freeStop(stops);
   return 0;
 }
