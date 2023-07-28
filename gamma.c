@@ -291,7 +291,6 @@ void scanReachable(struct node** node, int finish, int level, struct stop* stops
 		if(traveller->distance-starting_distance <= reachable_distance){
 			if(traveller->distance == finish){
 				struct node* child = createNodeFromDistance(stops, traveller->distance, level);
-				(*node)->children = NULL;
 				//if it is, it's the last node that needs to be added
 				addChild(&(*node), &child);
 				*best = child;
@@ -345,7 +344,6 @@ void scanReachableReverse(struct node** node, int finish, int level, struct stop
 			if(traveller->distance == finish){
 				struct node* child = createNodeFromDistance(stops, traveller->distance, level);
 				//if it is, it's the last node that needs to be added
-				(*node)->children = NULL;
 				addChild(&(*node), &child);
 				*best = child;
 				return;
