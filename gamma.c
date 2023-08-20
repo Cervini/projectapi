@@ -38,7 +38,7 @@ void freeVehicles(struct vehicle** start){
 	}
 }
 
-void freeStop(struct stop** start){
+void freeStops(struct stop** start){
 	struct stop* cleaner = NULL;
 	struct stop* garbage = NULL;
 	cleaner = *start;
@@ -167,7 +167,7 @@ int addVehicle(struct stop** stops, int distance, int autonomy){
 			}
 			struct vehicle* pointer = station->vehicles;
 			while(pointer){
-				if(pointer->value < autonomy){
+				if(pointer->value <= autonomy){
 					pointer->previous->next = new_vehicle;
 					new_vehicle->previous = pointer->previous;
 					pointer->previous = new_vehicle;
@@ -263,6 +263,34 @@ void addChild(struct node** father, struct node** child){
 	(*child)->sibling = NULL;
 }
 
+void printPath(struct node* best, int reverse){
+	if(best == NULL){
+		printf("nessun percorso\n");
+	} else {
+		int l = best->level;
+		int path[l];
+		int i;
+		struct node* traveller = best;
+		for(i=l-1; i>=0; i--){
+			path[i] = traveller->stop->distance;
+			traveller = traveller->father;
+		}
+		if(reverse == 1){
+			printf("%d", path[0]);
+			for(i=1; i<l; i++){
+				printf(" %d", path[i]);
+			}
+			printf("\n");
+		} else {
+			printf("%d", path[l-1]);
+			for(i=l-2; i>=0; i--){
+				printf(" %d", path[i]);
+			}
+			printf("\n");
+		}
+	}
+}
+
 void scanReachable(struct node** node, int finish, int level, struct stop* stops, struct node** best){
 	level++;
 	if(*best != NULL){
@@ -315,51 +343,48 @@ void scanReachable(struct node** node, int finish, int level, struct stop* stops
 	}
 }
 
-void scanReachableReverse(struct node** node, int finish, int level, struct stop* stops, struct node** best){
+void scanReverse(struct node** node, struct stop* stops, struct node** best, int start, int level){
 	level++;
 	if(*best != NULL){
-		if((*best)->level < level)
+		if((*best)->level <= level)
 			return;
 	}
-	int starting_distance, reachable_distance;
-	if((*node!=NULL)&&((*node)->stop!=NULL)){
-		starting_distance = (*node)->stop->distance;
-		if((*node)->stop->vehicles!=NULL){
-			reachable_distance = (*node)->stop->vehicles->value;
-		} else {
-			return;
-		}
+	int destination;
+	struct stop* traveller;
+	if(((*node) != NULL) && ((*node)->stop != NULL)){
+		traveller = (*node)->stop;
+		destination = (*node)->stop->distance;
 	} else {
 		return;
 	}
-	struct stop* traveller = NULL;
-	if((*node)->stop->previous)
-		traveller = (*node)->stop->previous;
-	else
-		return;
-	//add all the children to the node
-	while((traveller!=NULL) && (traveller->distance >= finish)){
-		//check if the stop is the destination
-		if(starting_distance-traveller->distance <= reachable_distance){
-			if(traveller->distance == finish){
-				struct node* child = createNodeFromDistance(stops, traveller->distance, level);
-				//if it is, it's the last node that needs to be added
-				addChild(&(*node), &child);
-				*best = child;
-				return;
-			} else {
-				struct node* child = createNodeFromDistance(stops, traveller->distance, level);
-				addChild(&(*node), &child);
+	while((traveller->next != NULL) && (traveller->next->distance <= start)){
+		if(traveller->next->vehicles != NULL){
+			if(traveller->next->distance - traveller->next->vehicles->value <= destination){
+				if(traveller->next->distance == start){
+					struct node* child = createNodeFromDistance(stops, traveller->next->distance, level);
+					addChild(&(*node), &child);
+					*best = child;
+					/*
+					printf(" -> reached!, current path: ");
+					printPath(*best, 1);
+					printf("\n");*/
+					return;
+				} else {
+					struct node* child = createNodeFromDistance(stops, traveller->next->distance, level);
+					addChild(&(*node), &child);
+				}
 			}
 		}
-		traveller = traveller->previous;
+		traveller = traveller->next;
 	}
-	//after all children have been added if the destination has not been reached
+	if(*best != NULL){
+		if((*best)->level <= level++)
+			return;
+	}
 	struct node* to_scan = (*node)->children;
-	//scan from all the children of the current node
 	while(to_scan){
-		if(to_scan->stop->distance != finish){
-			scanReachableReverse(&to_scan, finish, level, stops, &(*best));
+		if(to_scan->stop->distance != start){
+			scanReverse(&to_scan,  stops, &(*best), start, level);
 			to_scan = to_scan->sibling;
 		} else {
 			return;
@@ -367,41 +392,28 @@ void scanReachableReverse(struct node** node, int finish, int level, struct stop
 	}
 }
 
-struct node* buildTree(struct node** root, struct stop* stops, int start, int finish){
+struct node* buildTree(struct stop* stops, int start, int finish, struct node** root){
 	struct node* best = NULL;
 	if(start < finish){
+		*root = createNodeFromDistance(stops, start, 1);
 		scanReachable(&(*root), finish, 1, stops, &best);
 	} else {
-		scanReachableReverse(&(*root), finish, 1, stops, &best);
+		*root = createNodeFromDistance(stops, finish, 1);
+		scanReverse(&(*root), stops, &best, start, 1);
 	}
 	return best;
-}
-
-void printPath(struct node* best){
-	if(best == NULL){
-		printf("nessun percorso\n");
-	} else {
-		int l = best->level,path[l], i;
-		struct node* traveller = best;
-		for(i=l-1; i>-1; i--){
-			path[i] = traveller->stop->distance;
-			traveller = traveller->father;
-		}
-		printf("%d", path[0]);
-		for(i=1; i<l; i++){
-			printf(" %d", path[i]);
-		}
-		printf("\n");
-	}
 }
 
 void planPath(struct stop* stops, int start, int finish){
 	if(start==finish){
 		printf("%d\n", start);
 	} else {
-		struct node* root = createNodeFromDistance(stops, start, 1);
-		struct node* best = buildTree(&root, stops, start, finish);
-		printPath(best);
+		struct node* root = NULL;
+		struct node* best = buildTree(stops, start, finish, &root);
+		int rev = 0;
+		if(start < finish)
+			rev = 1;
+		printPath(best,rev);
 		freeTree(&root);
 	}
 }
@@ -495,7 +507,7 @@ int main(int argc, char *argv[]){
 		}
 	}
 	if(stops != NULL){
-		freeStop(&stops);
+		freeStops(&stops);
 		stops = NULL;
 	}
   return 0;
