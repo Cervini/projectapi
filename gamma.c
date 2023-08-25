@@ -146,10 +146,6 @@ int addVehicle(struct stop** stops, int distance, int autonomy){
 		//it exists
 		struct vehicle* backup;
 		struct vehicle* new_vehicle = (struct vehicle*)malloc(sizeof(struct vehicle));
-		if(new_vehicle == NULL){
-			printf("Memory error");
-			exit(0);
-		}
 		new_vehicle->value = autonomy;
 		//empty list
 		if(station->vehicles == NULL){
@@ -210,6 +206,7 @@ void deleteStation(struct stop** stops, int distance){
 	} else {
 		*stops = station->next;
 	}
+	freeVehicles(&(station->vehicles));
 	free(station);
 	printf("demolita\n");
 }
@@ -238,30 +235,42 @@ void deleteVehicle(struct stop** stops, int distance, int value){
 	printf("non rottamata\n");
 }
 
-void dijkstraScan(struct data** node){
-	//printf(" -> Start dijkstraScan\n");
+void dijkstraScan(struct data** node, int variant){
 	//update distances from node being scanned (node)
-	struct data* traveller = (*node);
-	//see if the other stations are reachable
-	while(traveller != NULL){
-		//if reachable
-		if(positive(traveller->stop->distance,(*node)->stop->distance) <= (*node)->stop->vehicles->value){
-			//printf(" -> Reachable stop\n");
-			if((traveller->steps == -1)||(traveller->steps > (*node)->steps+1)){
-				//printf(" -> Reachable in less\n");
-				traveller->steps = (*node)->steps + 1;
-				traveller->previous_step = (*node);
+	if(variant == 0){
+		struct data* traveller = (*node);
+		//see if the other stations are reachable
+		while(traveller != NULL){
+			//if reachable
+			if(positive(traveller->stop->distance,(*node)->stop->distance) <= (*node)->stop->vehicles->value){
+				if((traveller->steps == -1)||(traveller->steps > (*node)->steps+1)){
+					traveller->steps = (*node)->steps + 1;
+					traveller->previous_step = (*node);
+				}
 			}
+			traveller = traveller->next;
 		}
-		traveller = traveller->next;
+	} else if(variant == 1) {
+		struct data* traveller = (*node);
+		//see if the other stations are reachable
+		while(traveller != NULL){
+			//if reachable
+			if(positive(traveller->stop->distance,(*node)->stop->distance) <= (*node)->stop->vehicles->value){
+				if((traveller->steps == -1)||(traveller->steps >= (*node)->steps+1)){
+					traveller->steps = (*node)->steps + 1;
+					traveller->previous_step = (*node);
+				}
+			}
+			traveller = traveller->next;
+		}
 	}
-	//set sanned node as visited
+	//set scanned node as visited
 	(*node)->visited = 1;
 	//look for unvisited node with least steps
 	struct data* next = (*node)->next;
 	while(next != NULL){
 		if(next->steps != -1){
-			dijkstraScan(&next);
+			dijkstraScan(&next, variant);
 			break;
 		}
 		next = next->next;
@@ -280,11 +289,14 @@ void printPath(struct data** start){
 		arr[i] = traveller->stop->distance;
 		traveller = traveller->previous_step;
 	}
-	for(i=0; i<l; i++){
-		printf("%d ", arr[i]);
+	printf("%d", arr[0]);
+	for(i=1; i<l; i++){
+		printf(" %d", arr[i]);
 	}
 	printf("\n");
 }
+
+/*
 
 // DEBUGGING METHOD
 void printPaths(struct data** start){
@@ -293,7 +305,7 @@ void printPaths(struct data** start){
 		printf(". %d. steps: %d. visited: %d. %p\n", traveller->stop->distance, traveller->steps, traveller->visited, traveller->previous_step);
 		traveller = traveller->next;
 	}
-}
+} */
 
 void dijkstraForward(struct stop* stops, int partenza, int arrivo){
 	//build steps list
@@ -317,7 +329,7 @@ void dijkstraForward(struct stop* stops, int partenza, int arrivo){
 		traveller = traveller->previous;
 	}
 	paths->steps = 0;
-	dijkstraScan(&paths);
+	dijkstraScan(&paths, 0);
 	printPath(&destination);
 	freePaths(&paths);
 }
@@ -344,8 +356,12 @@ void dijkstraBackward(struct stop* stops, int partenza, int arrivo){
 		traveller = traveller->next;
 	}
 	paths->steps = 0;
-	dijkstraScan(&paths);
-	//printPaths(&paths);
+	dijkstraScan(&paths, 1);
+	/*
+	printf("--------------------------------\n");
+	printPaths(&paths);
+	printf("--------------------------------\n");
+	*/
 	printPath(&destination);
 	freePaths(&paths);
 }
