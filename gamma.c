@@ -1,6 +1,7 @@
 #include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
+#include "limits.h"
 
 //= STRUCTURES =================================================================
 
@@ -17,13 +18,13 @@ typedef struct stop{
   struct stop* previous;
 }stop;
 
-typedef struct node{
-	int level;
+typedef struct data{
+	int steps;
+	int visited;
 	struct stop* stop;
-	struct node* father;
-	struct node* children;
-	struct node* sibling;
-}node;
+	struct data* previous_step;
+	struct data* next;
+}data;
 
 //= CLEANING METHODS ===========================================================
 
@@ -50,24 +51,25 @@ void freeStops(struct stop** start){
 	}
 }
 
-void freeTree(struct node** branch){
-	if(*branch != NULL){
-		if((*branch)->children == NULL){
-			free(*branch);
-		} else {
-			struct node* child = (*branch)->children;
-			struct node* garbage = NULL;
-			while(child){
-				garbage = child;
-				child = child->sibling;
-				freeTree(&garbage);
-			}
-			free(*branch);
-		}
+void freePaths(struct data** start){
+	struct data* cleaner = NULL;
+	struct data* garbage = NULL;
+	cleaner = *start;
+	while(cleaner){
+		garbage = cleaner;
+		cleaner = cleaner->next;
+		free(garbage);
 	}
 }
 
 //= METHODS ====================================================================
+
+int positive(int a, int b){
+	if(a>=b)
+		return a-b;
+	else
+		return b-a;
+}
 
 struct stop* getStation(struct stop* stops, int distance){
 	struct stop* pointer = stops;
@@ -236,220 +238,127 @@ void deleteVehicle(struct stop** stops, int distance, int value){
 	printf("non rottamata\n");
 }
 
-struct node* createNodeFromDistance(struct stop* stops, int distance, int level){
-	struct node* root = (struct node*)malloc(sizeof(struct node));
-	if(root == NULL){
-		printf("Memory error");
-		exit(0);
-	}
-	root->stop = getStation(stops, distance);
-	root->level = level;
-	root->children = NULL;
-	root->sibling = NULL;
-	return root;
-}
-
-void addChild(struct node** father, struct node** child){
-	(*child)->father = *father;
-	if((*father)->children != NULL){
-		struct node* traveller = (*father)->children;
-		while(traveller->sibling != NULL){
-			traveller = traveller->sibling;
+void dijkstraScan(struct data** node){
+	//printf(" -> Start dijkstraScan\n");
+	//update distances from node being scanned (node)
+	struct data* traveller = (*node);
+	//see if the other stations are reachable
+	while(traveller != NULL){
+		//if reachable
+		if(positive(traveller->stop->distance,(*node)->stop->distance) <= (*node)->stop->vehicles->value){
+			//printf(" -> Reachable stop\n");
+			if((traveller->steps == -1)||(traveller->steps > (*node)->steps+1)){
+				//printf(" -> Reachable in less\n");
+				traveller->steps = (*node)->steps + 1;
+				traveller->previous_step = (*node);
+			}
 		}
-		traveller->sibling = *child;
-	} else {
-		(*father)->children = *child;
+		traveller = traveller->next;
 	}
-	(*child)->sibling = NULL;
+	//set sanned node as visited
+	(*node)->visited = 1;
+	//look for unvisited node with least steps
+	struct data* next = (*node)->next;
+	while(next != NULL){
+		if(next->steps != -1){
+			dijkstraScan(&next);
+			break;
+		}
+		next = next->next;
+	}
 }
 
-void printPath(struct node* best, int reverse){
-	if(best == NULL){
+void printPath(struct data** start){
+	struct data* traveller = *start;
+	if(traveller->previous_step == NULL){
 		printf("nessun percorso\n");
-	} else {
-		int l = best->level;
-		int path[l];
-		int i;
-		struct node* traveller = best;
-		for(i=l-1; i>=0; i--){
-			path[i] = traveller->stop->distance;
-			traveller = traveller->father;
-		}
-		if(reverse == 1){
-			printf("%d", path[0]);
-			for(i=1; i<l; i++){
-				printf(" %d", path[i]);
-			}
-			printf("\n");
-		} else {
-			printf("%d", path[l-1]);
-			for(i=l-2; i>=0; i--){
-				printf(" %d", path[i]);
-			}
-			printf("\n");
-		}
-	}
-}
-
-void scanReachable(struct node** node, int finish, int level, struct stop* stops, struct node** best){
-	level++;
-	if(*best != NULL){
-		if((*best)->level <= level)
-			return;
-	}
-	int starting_distance, reachable_distance;
-	if((*node!=NULL)&&((*node)->stop!=NULL)){
-		starting_distance = (*node)->stop->distance;
-		if((*node)->stop->vehicles!=NULL){
-			reachable_distance = (*node)->stop->vehicles->value;
-		} else {
-			return;
-		}
-	} else {
 		return;
 	}
-	struct stop* traveller = NULL;
-	if((*node)->stop->next)
-		traveller = (*node)->stop->next;
-	else
-		return;
-	//add all the children to the node
-	while((traveller!=NULL) && (traveller->distance <= finish)){
-		//check if the stop is the destination
-		if(traveller->distance-starting_distance <= reachable_distance){
-			if(traveller->distance == finish){
-				struct node* child = createNodeFromDistance(stops, traveller->distance, level);
-				//if it is, it's the last node that needs to be added
-				addChild(&(*node), &child);
-				*best = child;
-				return;
-			} else {
-				struct node* child = createNodeFromDistance(stops, traveller->distance, level);
-				addChild(&(*node), &child);
-			}
-		}
-		traveller = traveller->next;
+	int l = traveller->steps+1, i;
+	int arr[l];
+	for(i=l-1; i>=0; i--){
+		arr[i] = traveller->stop->distance;
+		traveller = traveller->previous_step;
 	}
-	//after all children have been added if the destination has not been reached
-	struct node* to_scan = (*node)->children;
-	//scan from all the children of the current node
-	while(to_scan){
-		if(to_scan->stop->distance != finish){
-			scanReachable(&to_scan, finish, level, stops, &(*best));
-			to_scan = to_scan->sibling;
-		} else {
-			return;
-		}
+	for(i=0; i<l; i++){
+		printf("%d ", arr[i]);
 	}
-}
-
-void scanReverse(struct node** node, struct stop* stops, struct node** best, int start, int level){
-	level++;
-	if(*best != NULL){
-		if((*best)->level <= level)
-			return;
-	}
-	int destination;
-	struct stop* traveller;
-	if(((*node) != NULL) && ((*node)->stop != NULL)){
-		traveller = (*node)->stop;
-		destination = (*node)->stop->distance;
-	} else {
-		return;
-	}
-	while((traveller->next != NULL) && (traveller->next->distance <= start)){
-		if(traveller->next->vehicles != NULL){
-			if(traveller->next->distance - traveller->next->vehicles->value <= destination){
-				if(traveller->next->distance == start){
-					struct node* child = createNodeFromDistance(stops, traveller->next->distance, level);
-					addChild(&(*node), &child);
-					*best = child;
-					/*
-					printf(" -> reached!, current path: ");
-					printPath(*best, 1);
-					printf("\n");*/
-					return;
-				} else {
-					struct node* child = createNodeFromDistance(stops, traveller->next->distance, level);
-					addChild(&(*node), &child);
-				}
-			}
-		}
-		traveller = traveller->next;
-	}
-	if(*best != NULL){
-		if((*best)->level <= level++)
-			return;
-	}
-	struct node* to_scan = (*node)->children;
-	while(to_scan){
-		if(to_scan->stop->distance != start){
-			scanReverse(&to_scan,  stops, &(*best), start, level);
-			to_scan = to_scan->sibling;
-		} else {
-			return;
-		}
-	}
-}
-
-struct node* buildTree(struct stop* stops, int start, int finish, struct node** root){
-	struct node* best = NULL;
-	if(start < finish){
-		*root = createNodeFromDistance(stops, start, 1);
-		scanReachable(&(*root), finish, 1, stops, &best);
-	} else {
-		*root = createNodeFromDistance(stops, finish, 1);
-		scanReverse(&(*root), stops, &best, start, 1);
-	}
-	return best;
-}
-
-void planPath(struct stop* stops, int start, int finish){
-	if(start==finish){
-		printf("%d\n", start);
-	} else {
-		struct node* root = NULL;
-		struct node* best = buildTree(stops, start, finish, &root);
-		int rev = 0;
-		if(start < finish)
-			rev = 1;
-		printPath(best,rev);
-		freeTree(&root);
-	}
-}
-
-//= TESTING METHODS ============================================================
-
-//this method prints the values of a list of vehicles
-void printVehicles(struct stop* stops, int distance){
-	struct stop* stop = getStation(stops, distance);
-	if(!stop->vehicles){
-		printf("\n");
-		return;
-	}
-	struct vehicle* t = stop->vehicles;
-	do{
-		printf(" %d", t->value);
-		t= t->next;
-	}while(t);
 	printf("\n");
 }
 
-//this method prints the distances of a list of stops
-void printDistances(struct stop* stops){
-	if(!stops){
-		printf("empty list\n");
-		return;
+// DEBUGGING METHOD
+void printPaths(struct data** start){
+	struct data* traveller = (*start);
+	while(traveller != NULL){
+		printf(". %d. steps: %d. visited: %d. %p\n", traveller->stop->distance, traveller->steps, traveller->visited, traveller->previous_step);
+		traveller = traveller->next;
 	}
-	printf("Stop distances:\n");
-	struct stop* t = stops;
-	do{
-		printf("%d", t->distance);
-		printVehicles(stops, t->distance);
-		t = t->next;
-	}while(t != NULL);
 }
 
+void dijkstraForward(struct stop* stops, int partenza, int arrivo){
+	//build steps list
+	struct data* paths = (struct data*)malloc(sizeof(struct data));
+	struct data* destination = paths;
+	paths->stop = getStation(stops, arrivo);
+	paths->steps = -1;
+	paths->visited = 0;
+	paths->previous_step = NULL;
+	paths->next = NULL;
+	struct stop* traveller = paths->stop;
+	traveller = traveller->previous;
+	while((traveller != NULL) && (traveller->distance >= partenza)){
+		struct data* new_data = (struct data*)malloc(sizeof(struct data));
+		new_data->stop = traveller;
+		new_data->steps = -1;
+		new_data->visited = 0;
+		new_data->previous_step = NULL;
+		new_data->next = paths;
+		paths = new_data;
+		traveller = traveller->previous;
+	}
+	paths->steps = 0;
+	dijkstraScan(&paths);
+	printPath(&destination);
+	freePaths(&paths);
+}
+
+void dijkstraBackward(struct stop* stops, int partenza, int arrivo){
+	//build steps list
+	struct data* paths = (struct data*)malloc(sizeof(struct data));
+	struct data* destination = paths;
+	paths->stop = getStation(stops, arrivo);
+	paths->steps = -1;
+	paths->visited = 0;
+	paths->previous_step = NULL;
+	paths->next = NULL;
+	struct stop* traveller = paths->stop;
+	traveller = traveller->next;
+	while((traveller != NULL) && (traveller->distance <= partenza)){
+		struct data* new_data = (struct data*)malloc(sizeof(struct data));
+		new_data->stop = traveller;
+		new_data->steps = -1;
+		paths->visited = 0;
+		new_data->previous_step = NULL;
+		new_data->next = paths;
+		paths = new_data;
+		traveller = traveller->next;
+	}
+	paths->steps = 0;
+	dijkstraScan(&paths);
+	//printPaths(&paths);
+	printPath(&destination);
+	freePaths(&paths);
+}
+
+void planPath(struct stop* stops, int partenza, int arrivo){
+	if(partenza < arrivo){
+		dijkstraForward(stops, partenza, arrivo);
+	} else if(partenza > arrivo){
+		dijkstraBackward(stops, partenza, arrivo);
+	} else {
+		printf("%d\n", partenza);
+	}
+}
 //= MAIN =======================================================================
 
 int main(int argc, char *argv[]){
@@ -477,12 +386,14 @@ int main(int argc, char *argv[]){
 						break;
 				}
 			}
-		} else if(strcmp(input,"demolisci-stazione")==0) {
+		}
+		else if(strcmp(input,"demolisci-stazione")==0) {
 			int distanza;
 			if(scanf("%d", &distanza)!=1)
 				break;
 			deleteStation(&stops, distanza);
-		} else if(strcmp(input,"aggiungi-auto")==0){
+		}
+		else if(strcmp(input,"aggiungi-auto")==0){
 			int distanza, autonomia;
 			if(scanf("%d %d", &distanza, &autonomia)<1)
 				break;
@@ -490,19 +401,21 @@ int main(int argc, char *argv[]){
 				printf("aggiunta\n");
 			else
 				printf("non aggiunta\n");
-		} else if(strcmp(input,"rottama-auto")==0){
+		}
+		else if(strcmp(input,"rottama-auto")==0){
 			int distanza, autonomia;
 			if(scanf("%d %d", &distanza, &autonomia)<1)
 				break;
 			deleteVehicle(&stops, distanza, autonomia);
-		} else if(strcmp(input,"pianifica-percorso")==0){
+		}
+		else if(strcmp(input,"pianifica-percorso")==0){
 			int partenza, arrivo;
 			if(scanf("%d %d", &partenza, &arrivo)<1)
 				break;
 			planPath(stops, partenza, arrivo);
-		} else if(strcmp(input,"stampa-stazioni")==0){
-			printDistances(stops);
-		} else {
+
+		}
+		else {
 			printf("Not a command\n");
 		}
 	}
