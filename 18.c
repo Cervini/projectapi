@@ -28,37 +28,31 @@ typedef struct data{
 
 //= CLEANING METHODS ===========================================================
 
-void freeVehicles(struct vehicle** start){
-	struct vehicle* cleaner = NULL;
-	struct vehicle* garbage = NULL;
-	cleaner = *start;
-	while(cleaner){
-		garbage = cleaner;
-		cleaner = cleaner->next;
-		free(garbage);
+void freeVehicles(struct vehicle* start){
+	struct vehicle* cleaner;
+	while(start != NULL){
+		cleaner = start;
+		start = start->next;
+		free(cleaner);
 	}
 }
 
-void freeStops(struct stop** start){
-	struct stop* cleaner = NULL;
-	struct stop* garbage = NULL;
-	cleaner = *start;
-	while(cleaner){
-		garbage = cleaner;
-		freeVehicles(&(cleaner->vehicles));
-		cleaner = cleaner->next;
-		free(garbage);
+void freeStops(struct stop* start){
+	struct stop* cleaner;
+	while(start != NULL){
+		cleaner = start;
+		start = start->next;
+		freeVehicles(cleaner->vehicles);
+		free(cleaner);
 	}
 }
 
-void freePaths(struct data** start){
-	struct data* cleaner = NULL;
-	struct data* garbage = NULL;
-	cleaner = *start;
-	while(cleaner){
-		garbage = cleaner;
-		cleaner = cleaner->next;
-		free(garbage);
+void freePaths(struct data* start){
+	struct data* cleaner;
+	while(start != NULL){
+		cleaner = start;
+		start = start->next;
+		free(cleaner);
 	}
 }
 
@@ -81,7 +75,7 @@ struct stop* getStation(struct stop* stops, int distance){
 	return NULL;
 }
 
-int addStation(struct stop** stops, int distance){
+struct stop* addStation(struct stop** stops, int distance){
 	//if stops is empty
 	if(*stops == NULL){
 		struct stop* new_stop = (struct stop*)malloc(sizeof(struct stop));
@@ -90,36 +84,34 @@ int addStation(struct stop** stops, int distance){
 		new_stop->previous = NULL;
 		new_stop->next = NULL;
 		*stops = new_stop;
-		return 1;
+		return new_stop;
 	} else {
 		//if the station doesn't already exists
 		if(getStation(*stops, distance) == NULL){
 			struct stop* backup = NULL;
 			//allocate the new stop
 			struct stop* new_stop = (struct stop*)malloc(sizeof(struct stop));
-			if(new_stop == NULL){
-				printf("Memory error");
-				exit(0);
-			}
 			new_stop->distance = distance;
 			new_stop->vehicles = NULL;
+			new_stop->previous = NULL;
+			new_stop->next = NULL;
 			//if the station is in the first place
 			if((*stops)->distance > distance){
 				(*stops)->previous = new_stop;
 				new_stop->next = *stops;
 				new_stop->previous = NULL;
 				*stops = new_stop;
-				return 1;
+				return new_stop;
 			}
 			//start travelling
 			struct stop* pointer = *stops;
-			while(pointer){
+			while(pointer != NULL){
 				if(pointer->distance > distance){
 					pointer->previous->next = new_stop;
 					new_stop->next = pointer;
 					new_stop->previous = pointer->previous;
 					pointer->previous = new_stop;
-					return 1;
+					return new_stop;
 				}
 				if(pointer->next == NULL){
 					backup = pointer;
@@ -130,10 +122,82 @@ int addStation(struct stop** stops, int distance){
 			new_stop->next = NULL;
 			new_stop->previous = backup;
 			backup->next = new_stop;
-			return 1;
+			return new_stop;
 		}
 	}
-	return 0;
+	return NULL;
+}
+
+void printList(struct vehicle* head) {
+    while (head != NULL) {
+        printf("%d ", head->value);
+        head = head->next;
+    }
+    printf("\n");
+}
+
+void addVehicleFast(struct stop** station, int autonomy){
+	struct vehicle* new_vehicle = (struct vehicle*)malloc(sizeof(struct vehicle));
+	new_vehicle->value = autonomy;
+	new_vehicle->next = (*station)->vehicles;
+	if((*station)->vehicles != NULL){
+		(*station)->vehicles->previous = new_vehicle;
+	}
+	new_vehicle->previous = NULL;
+	(*station)->vehicles = new_vehicle;
+}
+
+void swapVehicles(vehicle** x, vehicle** y) {
+		if(*x != *y){
+			int value = (*x)->value;
+	    (*x)->value = (*y)->value;
+	    (*y)->value = value;
+		}
+}
+
+struct vehicle* partition(struct vehicle** from, struct vehicle** to) {
+  int pivot = (*to)->value;
+	struct vehicle* placer = NULL;
+	struct vehicle* traveller = *from;
+	while(traveller != (*to)){
+		if(traveller->value >= pivot){
+			if(placer == NULL)
+				placer = *from;
+			swapVehicles(&placer, &traveller);
+			placer = placer->next;
+		}
+		traveller = traveller->next;
+	}
+	if(traveller->value >= pivot){
+		if(placer == NULL)
+			placer = *from;
+		swapVehicles(&placer, &traveller);
+	}
+	return placer;
+}
+
+void quicksort(struct vehicle** from, struct vehicle** to) {
+	if((*from != NULL) && (*to != NULL)){
+		vehicle* pivot = partition(&(*from), &(*to));
+		if(*from != pivot)
+    	quicksort(&(*from), &pivot->previous);
+		if(pivot != *to)
+    	quicksort(&pivot->next, &(*to));
+	}
+}
+
+void orderVehicles(struct stop** station, int distance){
+	if((*station)->vehicles == NULL){
+		return;
+	}else if((*station)->vehicles->next == NULL){
+		return;
+	} else {
+		struct vehicle* last = (*station)->vehicles;
+		while(last->next != NULL){
+			last = last->next;
+		}
+		quicksort(&(*station)->vehicles, &last);
+	}
 }
 
 int addVehicle(struct stop** stops, int distance, int autonomy){
@@ -190,23 +254,32 @@ int addVehicle(struct stop** stops, int distance, int autonomy){
 
 void deleteStation(struct stop** stops, int distance){
 	struct stop* station = getStation(*stops, distance);
-	if(!station){
+	if(station == NULL){
 		printf("non demolita\n");
 		return;
-	}
-	if(station->previous != NULL){
-		if(station->next != NULL){
-			station->next->previous = station->previous;
-			station->previous->next = station->next;
-		} else {
-			station->previous->next = NULL;
-		}
 	} else {
-		*stops = station->next;
+		if((station->next == NULL) && (station->previous == NULL)){
+			*stops = NULL;
+			freeVehicles(station->vehicles);
+			free(station);
+			printf("demolita\n");
+			return;
+		}
+		if(station->previous != NULL){
+			if(station->next != NULL){
+				station->next->previous = station->previous;
+					station->previous->next = station->next;
+			} else {
+				station->previous->next = NULL;
+			}
+		} else {
+			station->next->previous = NULL;
+			*stops = station->next;
+		}
+		freeVehicles(station->vehicles);
+		free(station);
+		printf("demolita\n");
 	}
-	freeVehicles(&(station->vehicles));
-	free(station);
-	printf("demolita\n");
 }
 
 void deleteVehicle(struct stop** stops, int distance, int value){
@@ -240,22 +313,27 @@ void dijkstraScan(struct data** node, int variant){
 		//see if the other stations are reachable
 		while(traveller != NULL){
 			//if reachable
+			if((*node)->stop->vehicles != NULL)
+				{
 			if(positive(traveller->stop->distance,(*node)->stop->distance) <= (*node)->stop->vehicles->value){
 				if((traveller->steps == -1)||(traveller->steps > (*node)->steps+1)){
 					traveller->steps = (*node)->steps + 1;
 					traveller->previous_step = (*node);
 				}
-			}
+			}}
 			traveller = traveller->next;
 		}
 	} else if(variant == 1) {
 		struct data* traveller = (*node);
 		//see if the other stations are reachable
 		while(traveller != NULL){
-			if(positive(traveller->stop->distance,(*node)->stop->distance) <= (*node)->stop->vehicles->value){
+		if((*node)->stop->vehicles != NULL)
+			{
+				if(positive(traveller->stop->distance,(*node)->stop->distance) <= (*node)->stop->vehicles->value){
 				if((traveller->steps == -1)||(traveller->steps >= (*node)->steps+1)){
 					traveller->steps = (*node)->steps + 1;
 					traveller->previous_step = (*node);
+				}
 				}
 			}
 			traveller = traveller->next;
@@ -293,17 +371,6 @@ void printPath(struct data** start){
 	printf("\n");
 }
 
-/*
-
-// DEBUGGING METHOD
-void printPaths(struct data** start){
-	struct data* traveller = (*start);
-	while(traveller != NULL){
-		printf(". %d. steps: %d. visited: %d. %p\n", traveller->stop->distance, traveller->steps, traveller->visited, traveller->previous_step);
-		traveller = traveller->next;
-	}
-} */
-
 void dijkstraForward(struct stop* stops, int partenza, int arrivo){
 	//build steps list
 	struct data* paths = (struct data*)malloc(sizeof(struct data));
@@ -328,7 +395,7 @@ void dijkstraForward(struct stop* stops, int partenza, int arrivo){
 	paths->steps = 0;
 	dijkstraScan(&paths, 0);
 	printPath(&destination);
-	freePaths(&paths);
+	freePaths(paths);
 }
 
 void dijkstraBackward(struct stop* stops, int partenza, int arrivo){
@@ -357,7 +424,7 @@ void dijkstraBackward(struct stop* stops, int partenza, int arrivo){
 	paths->steps = 0;
 	dijkstraScan(&paths, 1);
 	printPath(&destination);
-	freePaths(&paths);
+	freePaths(paths);
 }
 
 void planPath(struct stop* stops, int partenza, int arrivo){
@@ -380,14 +447,19 @@ int main(int argc, char *argv[]){
 			int distanza, numero, i;
 			if(scanf("%d %d", &distanza, &numero)<1)
 				break;
-			if(addStation(&stops, distanza) == 1){
+			struct stop* new_stop = addStation(&stops, distanza);
+			if(new_stop != NULL){
 				printf("aggiunta\n");
-				for(i=0; i<numero; i++){
-					int autonomia;
-					if(scanf("%d", &autonomia)<1)
-						break;
-					addVehicle(&stops, distanza, autonomia);
+				if(numero != 0){
+					for(i=0; i<numero; i++){
+						int autonomia;
+						if(scanf("%d", &autonomia)<1)
+							break;
+						addVehicleFast(&new_stop, autonomia);
+					}
 				}
+				if(new_stop->vehicles != NULL)
+					orderVehicles(&new_stop, distanza);
 			} else {
 				printf("non aggiunta\n");
 				for(i=0; i<numero; i++){
@@ -430,7 +502,7 @@ int main(int argc, char *argv[]){
 		}
 	}
 	if(stops != NULL){
-		freeStops(&stops);
+		freeStops(stops);
 		stops = NULL;
 	}
   return 0;
